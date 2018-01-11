@@ -158,6 +158,7 @@ typedef struct
     size_t memoryPerNode;            /* additional memory used per node */
     enum PACKET_TYPE dataPacketType; /* The type of data packet.  */
     IOR_offset_t userdataFileSize;   /* Size of the file for the userdata from pathtoInputFile */
+    int patternSkipedTransfers;        /* Number of transfers to skip between to accesed ones */
 
 
     /* POSIX variables */

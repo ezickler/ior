@@ -205,6 +205,8 @@ void DecodeDirective(char *line, IOR_param_t *params)
                 /* Backwards compatibility for the "reorderTasks" option.
                    MUST follow the other longer reordertasks checks. */
                 params->reorderTasks = atoi(value);
+        } else if (strcasecmp(option, "numSkipedTransfers") == 0) {
+                params->patternSkipedTransfers = atoi(value);
         } else if (strcasecmp(option, "checkwrite") == 0) {
                 params->checkWrite = atoi(value);
         } else if (strcasecmp(option, "checkread") == 0) {
@@ -315,7 +317,7 @@ void DecodeDirective(char *line, IOR_param_t *params)
                         ERR("beegfsNumTargets must be >= 1");
         } else if (strcasecmp(option, "beegfsChunkSize") == 0) {
  #ifndef HAVE_BEEGFS_BEEGFS_H
-                 ERR("ior was not compiled with BeeGFS support"); 
+                 ERR("ior was not compiled with BeeGFS support");
  #endif
                  params->beegfs_chunkSize = StringToBytes(value);
                  if (!ISPOWEROFTWO(params->beegfs_chunkSize) || params->beegfs_chunkSize < (1<<16))

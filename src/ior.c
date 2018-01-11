@@ -208,6 +208,7 @@ void init_IOR_Param_t(IOR_param_t * p)
         p->setAlignment = 1;
         p->lustre_start_ost = -1;
         strncpy(p->pathToInputFile, "\0", MAXPATHLEN);
+        p->patternSkipedTransfers = 0;
 
         strncpy(p->hdfs_user, getenv("USER"), MAX_STR);
         p->hdfs_name_node      = "default";
@@ -340,6 +341,10 @@ static void CheckFileSize(IOR_test_t *test, IOR_offset_t dataMoved, int rep)
                                 if(params->deadlineForStonewalling){
                                   fprintf(stdout,
                                         "WARNING: maybe caused by deadlineForStonewalling\n");
+                                }
+                                if(params->patternSkipedTransfers){
+                                  fprintf(stdout,
+                                        "WARNING: proberbly caused by SkipedTransfers\n");
                                 }
                         }
                 }
@@ -2461,6 +2466,8 @@ static void ValidateTests(IOR_param_t * test)
             // get file size of user data from pathToInputFile
             FILE *fd;
             fd = fopen(test->pathToInputFile, "r" );
+            if (fd == NULL)
+                ERR("coulnot open userfile");
             fseek(fd, 0L, SEEK_END);
             test->userdataFileSize = ftell(fd);
             fclose(fd);
@@ -2493,12 +2500,13 @@ typedef struct {
 static IOR_offsetTuple_t *GetOffsetArraySequential(IOR_param_t * test,
                                               int pretendRank)
 {
-    IOR_offset_t i, j, k = 0;
+    IOR_offset_t i, j, k =0 , l = 0;
     IOR_offset_t offsets;
     IOR_offsetTuple_t *offsetArray;
 
     /* count needed offsets */
-    offsets = (test->blockSize / test->transferSize) * test->segmentCount;
+    offsets = (test->blockSize / test->transferSize) * test->segmentCount
+                / (test->patternSkipedTransfers + 1);
 
     /* setup empty array */
     offsetArray  = (IOR_offsetTuple_t *)malloc(sizeof(IOR_offsetTuple_t) * (offsets + 1));
@@ -2513,21 +2521,24 @@ static IOR_offsetTuple_t *GetOffsetArraySequential(IOR_param_t * test,
     /* fill with offsets */
     for (i = 0; i < test->segmentCount; i++) {
         for (j = 0; j < (test->blockSize / test->transferSize); j++) {
-            offsetArray[k].file = j * test->transferSize;
-            if (test->filePerProc) {
-                offsetArray[k].file += i * test->blockSize;
-            } else {
-                offsetArray[k].file += (i * test->numTasks * test->blockSize)
-                                        + (pretendRank * test->blockSize);
+            // skip hole transfers
+            if ( (l % (test->patternSkipedTransfers + 1) == 0) ) {
+                offsetArray[k].file = j * test->transferSize;
+                if (test->filePerProc) {
+                    offsetArray[k].file += i * test->blockSize;
+                } else {
+                    offsetArray[k].file += (i * test->numTasks * test->blockSize)
+                                            + (pretendRank * test->blockSize);
+                }
+                // save offset for buffer to read from
+                if(test->dataPacketType ==  userdata){
+                    offsetArray[k].memory = j * test->transferSize;
+                } else {
+                    offsetArray[k].memory = 0;
+                }
+                k++;
             }
-            // save offset for buffer to read from
-            if(test->dataPacketType ==  userdata){
-                offsetArray[k].memory = j * test->transferSize;
-            } else {
-                offsetArray[k].memory = 0;
-            }
-
-            k++;
+            l++;
         }
     }
 
@@ -2551,10 +2562,10 @@ static IOR_offsetTuple_t *GetOffsetArrayRandom(IOR_param_t * test, int pretendRa
                                           int access)
 {
         int seed;
-        IOR_offset_t i, j, k, value;
+        IOR_offset_t i, j, k, l, value = 0;
         IOR_offset_t offsets = 0;
         IOR_offset_t offsetCnt = 0;
-        IOR_offset_t fileSize;
+        IOR_offset_t numTransfers;
         IOR_offsetTuple_t *offsetArray, tmp;
 
         /* set up seed for random() */
@@ -2577,11 +2588,14 @@ static IOR_offsetTuple_t *GetOffsetArrayRandom(IOR_param_t * test, int pretendRa
 	     * different number of offsets.
 	     */
 
-            // callculating file size to determine the total number of transfers
-            fileSize = test->blockSize * test->segmentCount * test->numTasks;
+            // callculating the total number of transfers
+            numTransfers = (test->blockSize / test->transferSize) *
+                            test->segmentCount * test->numTasks /
+                            (test->patternSkipedTransfers + 1);
 
             // count needed offsets (pass 1)
-            for (i = 0; i < fileSize; i += test->transferSize) {
+            for (i = 0; i < numTransfers; i++ ) {
+                // assign transfers to tasks
     		    if ((random() % test->numTasks) == pretendRank) {
     			    offsets++;
     		    }
@@ -2601,10 +2615,11 @@ static IOR_offsetTuple_t *GetOffsetArrayRandom(IOR_param_t * test, int pretendRa
     	    // both loops needed for j counter in user data
             for (i = 0; i < test->segmentCount; i++) {
                 for (k = 0; k < test->numTasks; k++) {
-                    for (j = 0; j < (test->blockSize / test->transferSize); j++) {
+        		    for (j = 0; j < (test->blockSize / test->transferSize); j++) {
                         // only add assigne transfers to GetOffsetArrayRandom
                         // and skip the hole transfers
-                        if ( (random() % test->numTasks) == pretendRank)
+                        if ( (random() % test->numTasks) == pretendRank
+                            && (l % (test->patternSkipedTransfers + 1) == 0))
                         {
                             offsetArray[offsetCnt].file = (i * test->numTasks * test->blockSize)
                                                         + (k * test->blockSize)
@@ -2617,9 +2632,10 @@ static IOR_offsetTuple_t *GetOffsetArrayRandom(IOR_param_t * test, int pretendRa
                             }
                             offsetCnt++;
                         }
+                        l++;
                     }
-                }
-            }
+        		}
+    	    }
         }
 
         /* reorder array */
