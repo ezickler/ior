@@ -1,6 +1,8 @@
 language: c
+# {stable, edge, dev}
+group: edge
 # xenial 16.04 not yet supported
-# dist: xenial
+dist: xenial
 before_install:
     # For MPI
     - test -n $CC && unset CC
