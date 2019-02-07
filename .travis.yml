@@ -20,7 +20,7 @@ install:
     - sudo apt-get install -y hdf5-tools libhdf5-mpi-dev
     # Install  Parallel netcdf --------
     # TODO: Not in repos for 14.04 trustz but comes 16.04 xenial
-    sudo apt-get install -y libpnetcdf-dev pnetcdf-bin
+    - sudo apt-get install -y libpnetcdf-dev pnetcdf-bin
     # Install HDFS --------------------
     # TODO: Not sure with which c libray hdfs should be used and if it is in
     # the ubuntu repos
