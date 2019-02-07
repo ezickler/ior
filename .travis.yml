@@ -11,7 +11,8 @@ before_install:
     # So need to wait till travis is updated.
     # https://downloads.whamcloud.com/public/lustre/lustre-2.10.6/
     - wget https://downloads.whamcloud.com/public/lustre/lustre-2.10.6/ubuntu1604/client/lustre-client-modules-4.4.0-131-generic_2.10.6-1_amd64.deb
-    - sudo dpkg -i lustre-client-modules-4.4.0-131-generic_2.10.6-1_amd64.deb
+    - wget https://downloads.whamcloud.com/public/lustre/lustre-2.10.6/ubuntu1604/client/lustre-dev_2.10.6-1_amd64.deb
+    - sudo dpkg -i lustre-client-modules-4.4.0-131-generic_2.10.6-1_amd64.deb lustre-dev_2.10.6-1_amd64.deb
 install:
     - sudo apt-get -qq update
     # Install MPI ---------------------
@@ -30,4 +31,4 @@ install:
     # aiori-S3.c to achive this.
     # GPFS ----------------------------
     # NOTE: GPFS seams to need a license and is therefore not testable with travis.
-script: ./travis-build.sh && CONFIGURE_OPTS="--with-hdf5" ./travis-test.sh
+script: ./travis-build.sh && CONFIGURE_OPTS="--with-lustre" ./travis-test.sh
